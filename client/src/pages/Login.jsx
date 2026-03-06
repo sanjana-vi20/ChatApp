@@ -6,71 +6,83 @@ import { useNavigate } from "react-router-dom";
 import { BsSend } from "react-icons/bs";
 import { FiLock } from "react-icons/fi";
 import { IoMdPerson } from "react-icons/io";
+import { FcGoogle } from "react-icons/fc";
+import { useGoogleAuth } from "../config/GoogleAuth";
 
 function Login() {
-//   const { setUser, setIsLogin, setRole } = useAuth();
-//   const [isForgetPassword, setIsForgetPassword] = useState(false);
+ const navigate = useNavigate();
 
-  const navigate = useNavigate();
+  const { isLoading, error, isInitialized, signInWithGoogle } = useGoogleAuth();
+
+  const handleGoogleSuccess = async (userData) => {
+    console.log("Google Login Data", userData);
+    setLoading(true);
+    try {
+      const res = await api.post("/auth/googleLogin", userData);
+
+      toast.success(res.data.message);
+
+      // optional: store user or token
+      sessionStorage.setItem("AppUser", JSON.stringify(res.data.data));
+
+      handleClear();
+
+      // simple redirect
+      navigate("/");
+    } catch (error) {
+      console.log(error);
+      toast.error(error?.response?.data?.message || "Login failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const GoogleLogin = () => {
+    signInWithGoogle(handleGoogleSuccess, handleGoogleFailure);
+  };
+
+  const handleGoogleFailure = (error) => {
+    console.error("Google login failed:", error);
+    toast.error("Google login failed. Please try again.");
+  };
+
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [validationError, setValidationError] = useState({});
-
-  const handleClear = () => {
-    setFormData({
-      email: "",
-      password: "",
-    });
-  };
-
-  const validate = () => {
-    let Error = {};
-    if (
-      !/^[\w\.]+@(gmail|outlook|ricr|yahoo)\.(com|in|co.in)$/.test(
-        formData.email,
-      )
-    ) {
-      Error.email = "Use Proper Email Format";
-    }
-
-    setValidationError(Error);
-
-    return Object.keys(Error).length > 0 ? false : true;
-  };
+  const [Loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleClear = () => {
+    setFormData({ email: "", password: "" });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
-
-    if (!validate()) {
-      setIsLoading(false);
-      toast.error("Fill the Form Correctly");
-      return;
-    }
+    setLoading(true);
 
     try {
-      // console.log(formData);
       const res = await api.post("/auth/login", formData);
+
       toast.success(res.data.message);
-    //   setUser(res.data.data);
-    //   setIsLogin(true);
-      sessionStorage.setItem("CravingUser", JSON.stringify(res.data.data));
-      // navigate("/user-dashboard");
+
+      // optional: store user or token
+      sessionStorage.setItem("AppUser", JSON.stringify(res.data.data));
+
       handleClear();
+
+      // simple redirect
+      navigate("/dashboard");
     } catch (error) {
-    //   console.log(error);
-      toast.error(error?.response?.data?.message || "Unknown error");
+      console.log(error);
+      toast.error(error?.response?.data?.message || "Login failed");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
@@ -100,11 +112,11 @@ function Login() {
                       disabled={isLoading}
                     />
                   </div>
-                  {validationError.email && (
+                  {/* {validationError.email && (
                     <span className="text-xs text-red-500">
                       {validationError.email}
                     </span>
-                  )}
+                  )} */}
                 </div>
 
                 <div className="flex flex-col justify-between">
@@ -119,7 +131,7 @@ function Login() {
                       placeholder="Enter Password"
                       onChange={handleChange}
                       value={formData.password}
-                      disabled={isLoading}
+                      disabled={Loading}
                     />
                   </div>
 
@@ -139,11 +151,11 @@ function Login() {
 
             <div className="flex justify-center items-center gap-4">
               <button
-                disabled={isLoading}
+                disabled={Loading}
                 className="btn btn-gradient hover:transform hover:scale-105 "
               >
                 <BsSend />
-                {isLoading ? "Submitting" : "Submit"}
+                {Loading ? "Submitting" : "Submit"}
               </button>
             </div>
           </form>
@@ -156,6 +168,31 @@ function Login() {
               Register
             </button>
           </div>
+
+           <div className="mt-4">
+              {error ? (
+                <button
+                  className="btn btn-outline btn-error font-sans flex items-center justify-center gap-2 w-full"
+                  disabled
+                >
+                  <FcGoogle className="text-xl" />
+                  {error}
+                </button>
+              ) : (
+                <button
+                  onClick={GoogleLogin}
+                  className="btn btn-outline border-primary font-sans flex items-center justify-center gap-2 w-full"
+                  disabled={!isInitialized || isLoading}
+                >
+                  <FcGoogle className="text-xl" />
+                  {isLoading
+                    ? "Loading..."
+                    : isInitialized
+                      ? "Continue with Google"
+                      : "Google Auth Error"}
+                </button>
+              )}
+            </div>
         </div>
       </div>
 
