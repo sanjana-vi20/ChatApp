@@ -47,14 +47,11 @@ export const UserLogin = async (req, res, next) => {
     }
 
     const existingUser = await User.findOne({ email });
-
-    const isVerified = await bcrypt.compare(password, existingUser.password);
-    if (!isVerified) {
-      const error = new Error("Wrong Password");
-      error.statusCode = 401;
+     if (!existingUser) {
+      const error = new Error("Email not registered");
+      error.statusCode = 400;
       return next(error);
     }
-
     const isGoogleUser = existingUser.userType === "google";
     if (isGoogleUser) {
       const error = new Error("Please log in with Google");
@@ -80,52 +77,60 @@ export const UserLogin = async (req, res, next) => {
   }
 };
 
+export const UserLogout = async (req, res, next) => {
+  try {
+    // res.clearCookie("oreo");
+    res.status(200).json({ mesasge: "Logout Successfully" });
+  } catch (error) {
+    console.log(error);
+    next(error);
+  }
+};
+
 
 export const GoogleUserLogin = async (req, res, next) => {
   try {
-    const { name, email, id, imageUrl } = req.body;
+    const { email, id, name, imageUrl } = req.body; 
 
-    if (!imageUrl) {
-      //use Defualt Photo Code here
-      //using placehold.co
-    }
-    let existingUser = await User.findOne({ email });
-    const salt = await bcrypt.genSalt(10);
+    // STEP 1: Always search by email first. 
+    // Email is the most reliable unique identifier.
+    let user = await User.findOne({ email });
 
-    if (existingUser && existingUser.userType) {
-      if (existingUser.userType === "regular") {
-        console.log("pink");
-        existingUser.userType = "hybrid";
-        existingUser.googleId = bcrypt.hash(id, salt);
-        await existingUser.save();
-      } else {
-        console.log("green");
-        const isVerified = await bcrypt.compare(id, existingUser.googleId);
-        if (!isVerified) {
-          const error = new Error("User Not Verified");
-          error.statusCode = 400;
-          return next(error);
-        }
+    if (user) {
+      console.log("User found, checking types...");
+
+      // CASE A: User exists but was a 'regular' (password) user.
+      // We upgrade them to 'hybrid'.
+      if (user.userType === "regular") {
+        user.googleId = id; // Store RAW ID, NO BCRYPT
+        user.userType = "hybrid";
+        await user.save();
       }
+      
+      // CASE B: User is already 'google' or 'hybrid'.
+      // We don't need to do anything, just let them log in.
     } else {
-      console.log("orange");
-      const hashGoogleID = await bcrypt.hash(id, salt);
+      console.log("New user detected, creating record...");
 
-      const newUser = await User.create({
+      // STEP 2: Only create if NO user was found with that email.
+      user = await User.create({
         fullName: name,
-        email,
-        googleId: hashGoogleID,
+        email: email,
+        googleId: id, // Store RAW ID
         userType: "google",
+        profilePic: imageUrl || "https://placehold.co/400"
       });
-      existingUser = newUser;
     }
 
-    //genrate login token if requred
+    // STEP 3: Return the user (existing or new)
     res.status(200).json({
+      success: true,
       message: "Login successful",
-      data: existingUser,
+      data: user,
     });
+
   } catch (error) {
+    // If Mongoose 'unique' constraint triggers, it will catch here
     next(error);
   }
 };

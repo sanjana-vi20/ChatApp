@@ -28,7 +28,7 @@ function Login() {
       handleClear();
 
       // simple redirect
-      navigate("/");
+      navigate("/chatting");
     } catch (error) {
       console.log(error);
       toast.error(error?.response?.data?.message || "Login failed");
@@ -38,6 +38,7 @@ function Login() {
   };
 
   const GoogleLogin = () => {
+
     signInWithGoogle(handleGoogleSuccess, handleGoogleFailure);
   };
 
@@ -77,7 +78,7 @@ function Login() {
       handleClear();
 
       // simple redirect
-      navigate("/dashboard");
+      navigate("/chatting");
     } catch (error) {
       console.log(error);
       toast.error(error?.response?.data?.message || "Login failed");
